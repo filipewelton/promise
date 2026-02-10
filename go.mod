@@ -1,4 +1,4 @@
-module promise
+module github.com/filipewelton/promise
 
 go 1.25.4
 
