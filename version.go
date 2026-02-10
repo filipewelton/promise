@@ -1,3 +1,3 @@
 package promise
 
-var Version = "1.0.1"
+var Version = "2.0.0"

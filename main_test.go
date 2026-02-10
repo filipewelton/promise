@@ -13,23 +13,28 @@ func TestPromise(t *testing.T) {
 	RunSpecs(t, "Promise Suite")
 }
 
-var _ = Describe("Promise", func() {
-	It("should execute Then and not set error if no rejection", func() {
-		p := NewPromise[int]()
+var _ = Describe("Promise With Context", func() {
+	It("should update context", func() {
+		p := NewPromiseWithContext[int](nil)
 
-		p.Then(func(ctx *int, reject Reject) {
-			*ctx = 42
-		})
+		err := p.
+			ThenWithContext(func(ctx *int, reject Reject) {
+				*ctx = 42
+			}).
+			ThenWithContext(func(ctx *int, reject Reject) {
+				*ctx = 24
+			}).
+			Catch()
 
-		Expect(p.Catch()).To(BeNil())
-		Expect(p.context).To(Equal(42))
+		Expect(err).To(BeNil())
+		Expect(p.context).To(Equal(24))
 	})
 
 	It("should set error if rejected", func() {
-		p := NewPromise[int]()
+		p := NewPromiseWithContext[int](nil)
 		err := errors.New("fail")
 
-		p.Then(func(ctx *int, reject Reject) {
+		p.ThenWithContext(func(ctx *int, reject Reject) {
 			reject(err)
 		})
 
@@ -37,12 +42,51 @@ var _ = Describe("Promise", func() {
 	})
 
 	It("should return ErrRejectedWithoutReason if rejected with nil", func() {
-		p := NewPromise[int]()
+		p := NewPromiseWithContext[int](nil)
 
-		p.Then(func(ctx *int, reject Reject) {
+		p.ThenWithContext(func(ctx *int, reject Reject) {
 			reject(nil)
 		})
 
 		Expect(p.Catch()).To(Equal(ErrRejectedWithoutReason))
+	})
+})
+
+var _ = Describe("Promise Without Context", func() {
+	It("should execute all handlers", func() {
+		var x, y int
+
+		err := NewPromise().
+			Then(func(reject Reject) {
+				x = 10
+			}).
+			Then(func(reject Reject) {
+				y = 20
+			}).
+			Catch()
+
+		Expect(err).Should(BeNil())
+		Expect(x).Should(Equal(10))
+		Expect(y).Should(Equal(20))
+	})
+
+	It("should stop on first error without reason", func() {
+		err := NewPromise().
+			Then(func(reject Reject) {
+				reject(nil)
+			}).
+			Catch()
+
+		Expect(err).Should(Equal(ErrRejectedWithoutReason))
+	})
+
+	It("should stop on first error with reason", func() {
+		err := NewPromise().
+			Then(func(reject Reject) {
+				reject(errors.New("fail"))
+			}).
+			Catch()
+
+		Expect(err).Should(MatchError("fail"))
 	})
 })
