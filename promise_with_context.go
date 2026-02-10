@@ -8,7 +8,7 @@ type PromiseWithContext[T any] struct {
 
 type ExecutorWithContext[T any] func(ctx *T, reject Reject)
 
-func (p *PromiseWithContext[T]) ThenWithContext(
+func (p *PromiseWithContext[T]) Then(
 	executor ExecutorWithContext[T],
 ) *PromiseWithContext[T] {
 	if p.hasError {

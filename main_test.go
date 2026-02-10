@@ -18,10 +18,10 @@ var _ = Describe("Promise With Context", func() {
 		p := NewPromiseWithContext[int](nil)
 
 		err := p.
-			ThenWithContext(func(ctx *int, reject Reject) {
+			Then(func(ctx *int, reject Reject) {
 				*ctx = 42
 			}).
-			ThenWithContext(func(ctx *int, reject Reject) {
+			Then(func(ctx *int, reject Reject) {
 				*ctx = 24
 			}).
 			Catch()
@@ -34,7 +34,7 @@ var _ = Describe("Promise With Context", func() {
 		p := NewPromiseWithContext[int](nil)
 		err := errors.New("fail")
 
-		p.ThenWithContext(func(ctx *int, reject Reject) {
+		p.Then(func(ctx *int, reject Reject) {
 			reject(err)
 		})
 
@@ -44,7 +44,7 @@ var _ = Describe("Promise With Context", func() {
 	It("should return ErrRejectedWithoutReason if rejected with nil", func() {
 		p := NewPromiseWithContext[int](nil)
 
-		p.ThenWithContext(func(ctx *int, reject Reject) {
+		p.Then(func(ctx *int, reject Reject) {
 			reject(nil)
 		})
 
