@@ -1,92 +1,125 @@
-package promise
+package pipeline_test
 
 import (
 	"errors"
 	"testing"
 
+	"github.com/filipewelton/pipeline/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-func TestPromise(t *testing.T) {
+func TestPipeline(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Promise Suite")
+	RunSpecs(t, "Pipeline Suite")
 }
 
-var _ = Describe("Promise With Context", func() {
+var _ = Describe("Pipeline With Context", func() {
 	It("should update context", func() {
-		p := NewPromiseWithContext[int](nil)
+		ctx := 1
+		p := pipeline.NewWithContext(&ctx, false)
 
-		err := p.
-			Then(func(ctx *int, reject Reject) {
-				*ctx = 42
+		updatedCtx, err := p.
+			Add(func(ctx *int) (int, error) {
+				return *ctx + 1, nil
 			}).
-			Then(func(ctx *int, reject Reject) {
-				*ctx = 24
-			}).
-			Catch()
+			Run()
 
 		Expect(err).To(BeNil())
-		Expect(p.context).To(Equal(24))
+		Expect(ctx).ToNot(Equal(updatedCtx))
 	})
 
-	It("should set error if rejected", func() {
-		p := NewPromiseWithContext[int](nil)
-		err := errors.New("fail")
+	It("should stop on first error", func() {
+		ctx := 1
+		p := pipeline.NewWithContext(&ctx, true)
 
-		p.Then(func(ctx *int, reject Reject) {
-			reject(err)
-		})
+		_, err := p.
+			Add(func(ctx *int) (int, error) {
+				return 0, pipeline.ErrRejectedWithoutReason
+			}).
+			Add(func(ctx *int) (int, error) {
+				return *ctx + 1, nil
+			}).
+			Run()
 
-		Expect(p.Catch()).To(MatchError("fail"))
+		Expect(err).To(MatchError(pipeline.ErrRejectedWithoutReason))
 	})
 
-	It("should return ErrRejectedWithoutReason if rejected with nil", func() {
-		p := NewPromiseWithContext[int](nil)
+	It("should not stop on first error", func() {
+		ctx := 1
+		p := pipeline.NewWithContext(&ctx, false)
+		someError := errors.New("some error")
+		anotherError := errors.New("another error")
 
-		p.Then(func(ctx *int, reject Reject) {
-			reject(nil)
-		})
+		_, err := p.
+			Add(func(ctx *int) (int, error) {
+				return 0, pipeline.ErrRejectedWithoutReason
+			}).
+			Add(func(ctx *int) (int, error) {
+				return *ctx, someError
+			}).
+			Add(func(ctx *int) (int, error) {
+				return *ctx, anotherError
+			}).
+			Run()
 
-		Expect(p.Catch()).To(Equal(ErrRejectedWithoutReason))
+		Expect(err).To(MatchError(errors.Join(
+			pipeline.ErrRejectedWithoutReason,
+			someError,
+			anotherError,
+		)))
 	})
 })
 
-var _ = Describe("Promise Without Context", func() {
-	It("should execute all handlers", func() {
-		var x, y int
+var _ = Describe("Pipeline Without Context", func() {
+	It("should return nil error when all executors succeed", func() {
+		p := pipeline.New(false)
 
-		err := NewPromise().
-			Then(func(reject Reject) {
-				x = 10
+		err := p.
+			Add(func() error {
+				return nil
 			}).
-			Then(func(reject Reject) {
-				y = 20
-			}).
-			Catch()
+			Run()
 
-		Expect(err).Should(BeNil())
-		Expect(x).Should(Equal(10))
-		Expect(y).Should(Equal(20))
+		Expect(err).To(BeNil())
 	})
 
-	It("should stop on first error without reason", func() {
-		err := NewPromise().
-			Then(func(reject Reject) {
-				reject(nil)
-			}).
-			Catch()
+	It("should stop on first error", func() {
+		p := pipeline.New(true)
 
-		Expect(err).Should(Equal(ErrRejectedWithoutReason))
+		err := p.
+			Add(func() error {
+				return pipeline.ErrRejectedWithoutReason
+			}).
+			Add(func() error {
+				return nil
+			}).
+			Run()
+
+		Expect(err).To(MatchError(pipeline.ErrRejectedWithoutReason))
 	})
 
-	It("should stop on first error with reason", func() {
-		err := NewPromise().
-			Then(func(reject Reject) {
-				reject(errors.New("fail"))
-			}).
-			Catch()
+	It("should not stop on first error", func() {
+		p := pipeline.New(false)
+		someError := errors.New("some error")
+		anotherError := errors.New("another error")
 
-		Expect(err).Should(MatchError("fail"))
+		err := p.
+			Add(func() error {
+				return pipeline.ErrRejectedWithoutReason
+			}).
+			Add(func() error {
+				return someError
+			}).
+			Add(func() error {
+				return anotherError
+			}).
+			Run()
+
+		Expect(err).To(MatchError(errors.Join(
+			pipeline.ErrRejectedWithoutReason,
+			someError,
+			anotherError,
+		)))
 	})
 })

@@ -1,4 +1,4 @@
-module github.com/filipewelton/promise/v2
+module github.com/filipewelton/pipeline/v3
 
 go 1.25.4
 

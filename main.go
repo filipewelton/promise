@@ -1,28 +1,22 @@
-package promise
+package pipeline
 
 import "errors"
 
 type Reject func(reason error)
 
-var ErrRejectedWithoutReason = errors.New("promise rejected without reason")
+var ErrRejectedWithoutReason = errors.New("pipeline rejected without reason")
 
-func NewPromiseWithContext[T any](context *T) *PromiseWithContext[T] {
-	var ctx T
-
-	if context != nil {
-		ctx = *context
-	}
-
-	return &PromiseWithContext[T]{
-		context:  ctx,
-		hasError: false,
-		err:      nil,
+func NewWithContext[T any](
+	context *T, stopOnFirstError bool,
+) *PipelineWithContext[T] {
+	return &PipelineWithContext[T]{
+		context:          context,
+		stopOnFirstError: stopOnFirstError,
 	}
 }
 
-func NewPromise() *Promise {
-	return &Promise{
-		hasError: false,
-		err:      nil,
+func New(stopOnFirstError bool) *Pipeline {
+	return &Pipeline{
+		stopOnFirstError: stopOnFirstError,
 	}
 }
